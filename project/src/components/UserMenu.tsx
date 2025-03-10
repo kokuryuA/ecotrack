@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { User, LogOut, Settings, ChevronDown, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
 
 const UserMenu: React.FC = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -23,6 +25,16 @@ const UserMenu: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
+    setIsOpen(false);
+  };
+
+  const handleHistoryClick = () => {
+    navigate('/history');
+    setIsOpen(false);
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/settings');
     setIsOpen(false);
   };
 
@@ -63,22 +75,22 @@ const UserMenu: React.FC = () => {
               <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
             </div>
-            <motion.a
+            <motion.button
               whileHover={{ backgroundColor: "#F3F4F6" }}
-              href="#"
-              className="block px-4 py-2 text-sm text-gray-700 flex items-center"
+              onClick={handleSettingsClick}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 flex items-center"
             >
               <Settings className="h-4 w-4 mr-2" />
               Account settings
-            </motion.a>
-            <motion.a
+            </motion.button>
+            <motion.button
               whileHover={{ backgroundColor: "#F3F4F6" }}
-              href="#"
-              className="block px-4 py-2 text-sm text-gray-700 flex items-center"
+              onClick={handleHistoryClick}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 flex items-center"
             >
               <History className="h-4 w-4 mr-2" />
               Prediction history
-            </motion.a>
+            </motion.button>
             <motion.button
               whileHover={{ backgroundColor: "#FEE2E2" }}
               onClick={handleLogout}

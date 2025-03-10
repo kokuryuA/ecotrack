@@ -41,34 +41,16 @@ const InputForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (startDate >= endDate) {
-      toast.error('End date must be after start date');
-      return;
-    }
-
-    const totalAppliances = Object.values(applianceCounts).reduce((sum, count) => sum + count, 0);
-    if (totalAppliances <= 0) {
-      toast.error('Please add at least one appliance');
-      return;
-    }
-
-    setLoading(true);
-    
     try {
-      const data = {
+      await fetchPrediction({
         appliances: applianceCounts,
         start_date: format(startDate, 'yyyy-MM-dd'),
         end_date: format(endDate, 'yyyy-MM-dd')
-      };
-      
-      await fetchPrediction(data);
-      await fetchForecast();
-      
+      });
       toast.success('Prediction generated successfully!');
     } catch (error) {
       console.error('Error generating prediction:', error);
-      toast.error('Failed to generate prediction. Please try again.');
+      toast.error('Failed to generate prediction');
     }
   };
 

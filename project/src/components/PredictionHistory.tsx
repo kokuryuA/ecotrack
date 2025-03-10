@@ -7,8 +7,11 @@ const PredictionHistory: React.FC = () => {
   const { predictionHistory, fetchPredictionHistory, loading } = useEnergyStore();
   
   useEffect(() => {
+    console.log('PredictionHistory mounted');
     fetchPredictionHistory();
-  }, [fetchPredictionHistory]);
+  }, []);
+  
+  console.log('Current prediction history:', predictionHistory);
   
   if (loading) {
     return (
@@ -34,66 +37,35 @@ const PredictionHistory: React.FC = () => {
   }
   
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
-        <h2 className="text-xl font-bold text-white flex items-center">
-          <History className="mr-3 h-6 w-6" />
-          Your Prediction History
-        </h2>
-      </div>
-      
-      <div className="p-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Period
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Appliances
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Consumption
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {predictionHistory.map((prediction) => (
-                <tr key={prediction.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(prediction.created_at), 'MMM d, yyyy')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-purple-500 mr-2" />
-                      <span className="text-sm text-gray-900">
-                        {format(new Date(prediction.start_date), 'MMM d')} - {format(new Date(prediction.end_date), 'MMM d, yyyy')}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {prediction.days} days
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {prediction.total_appliances} appliances
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Zap className="h-4 w-4 text-yellow-500 mr-2" />
-                      <span className="text-sm font-medium text-gray-900">
-                        {prediction.consumption.toFixed(2)} kWh
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold text-gray-900">Prediction History</h2>
+      <div className="grid gap-4">
+        {predictionHistory.map((prediction) => (
+          <div key={prediction.id} className="bg-white p-6 rounded-xl shadow-lg">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-500">Date Range</p>
+                <p className="font-medium">
+                  {format(new Date(prediction.start_date), 'MMM d, yyyy')} - {format(new Date(prediction.end_date), 'MMM d, yyyy')}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Total Consumption</p>
+                <p className="font-medium">{prediction.consumption.toFixed(1)} kWh</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Total Appliances</p>
+                <p className="font-medium">{prediction.total_appliances}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Daily Average</p>
+                <p className="font-medium">{(prediction.consumption / prediction.days).toFixed(1)} kWh</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ interface AuthState {
   setUser: (user: User | null) => void;
   setIsAuthenticated: (isAuthenticated: boolean) => void;
   clearError: () => void;
+  checkUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -31,32 +32,46 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       
-      login: async (email, password) => {
-        set({ isLoading: true, error: null });
+      checkUser: async () => {
         try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          
-          if (error) throw error;
-          
-          if (data.user) {
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-
-            if (userError) throw userError;
-
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
             set({ 
-              user: userData,
-              isAuthenticated: true
+              user: { id: user.id, email: user.email || '' }, 
+              isAuthenticated: true,
+              isLoading: false 
+            });
+          } else {
+            set({ user: null, isAuthenticated: false, isLoading: false });
+          }
+        } catch (error) {
+          console.error('Error checking user:', error);
+          set({ user: null, isAuthenticated: false, isLoading: false });
+        }
+      },
+      
+      login: async (email: string, password: string) => {
+        try {
+          set({ isLoading: true, error: null });
+          const { data: { user }, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
+
+          if (error) throw error;
+          if (user) {
+            set({ 
+              user: { id: user.id, email: user.email || '' },
+              isAuthenticated: true,
+              error: null
             });
           }
-        } catch (error: any) {
-          set({ error: error.message });
+        } catch (error) {
+          console.error('Login error:', error);
+          set({ 
+            error: 'Login failed. Please check your credentials.',
+            isAuthenticated: false
+          });
           throw error;
         } finally {
           set({ isLoading: false });
@@ -101,16 +116,14 @@ export const useAuthStore = create<AuthState>()(
       
       logout: async () => {
         try {
-          const { error } = await supabase.auth.signOut();
-          if (error) throw error;
-          
-          set({ 
-            user: null,
-            isAuthenticated: false
-          });
-        } catch (error: any) {
-          set({ error: error.message });
-          throw error;
+          set({ isLoading: true, error: null });
+          await supabase.auth.signOut();
+          set({ user: null, isAuthenticated: false });
+        } catch (error) {
+          console.error('Logout error:', error);
+          set({ error: 'Logout failed.' });
+        } finally {
+          set({ isLoading: false });
         }
       },
       
