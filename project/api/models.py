@@ -25,6 +25,7 @@ class Prediction(Base):
     consumption = Column(Float)
     days = Column(Integer)
     total_appliances = Column(Integer)
+    time_series_predictions = Column(JSON)
     created_at = Column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="predictions")

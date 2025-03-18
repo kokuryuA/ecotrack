@@ -11,6 +11,7 @@
       - `consumption` (double precision)
       - `days` (integer)
       - `total_appliances` (integer)
+      - `time_series_predictions` (jsonb)
       - `created_at` (timestamptz)
 
     - `forecasts`
@@ -40,6 +41,7 @@ DO $$ BEGIN
     consumption double precision NOT NULL,
     days integer NOT NULL,
     total_appliances integer NOT NULL,
+    time_series_predictions jsonb,
     created_at timestamptz DEFAULT now()
   );
 
