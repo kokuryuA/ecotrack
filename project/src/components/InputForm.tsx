@@ -11,17 +11,18 @@ interface Appliance {
   name: string;
   icon: React.ReactNode;
   defaultCount: number;
+  powerUsage: string;
 }
 
 const appliances: Appliance[] = [
-  { id: 'lightbulbs', name: 'Light Bulbs', icon: <Lightbulb className="h-5 w-5" />, defaultCount: 8 },
-  { id: 'tvs', name: 'TVs', icon: <Tv className="h-5 w-5" />, defaultCount: 1 },
-  { id: 'computers', name: 'Computers', icon: <Computer className="h-5 w-5" />, defaultCount: 2 },
-  { id: 'fans', name: 'Fans', icon: <Fan className="h-5 w-5" />, defaultCount: 2 },
-  { id: 'refrigerators', name: 'Refrigerators', icon: <Refrigerator className="h-5 w-5" />, defaultCount: 1 },
-  { id: 'washingMachines', name: 'Washing Machines', icon: <WashingMachine className="h-5 w-5" />, defaultCount: 1 },
-  { id: 'coffeeMakers', name: 'Coffee Makers', icon: <Coffee className="h-5 w-5" />, defaultCount: 1 },
-  { id: 'smartphones', name: 'Smartphones', icon: <Smartphone className="h-5 w-5" />, defaultCount: 3 },
+  { id: 'lightbulbs', name: 'Light Bulbs', icon: <Lightbulb className="h-5 w-5" />, defaultCount: 8, powerUsage: '60W/h' },
+  { id: 'tvs', name: 'TVs', icon: <Tv className="h-5 w-5" />, defaultCount: 1, powerUsage: '100-200W/h' },
+  { id: 'computers', name: 'Computers', icon: <Computer className="h-5 w-5" />, defaultCount: 2, powerUsage: '150-300W/h' },
+  { id: 'fans', name: 'Fans', icon: <Fan className="h-5 w-5" />, defaultCount: 2, powerUsage: '50-100W/h' },
+  { id: 'refrigerators', name: 'Refrigerators', icon: <Refrigerator className="h-5 w-5" />, defaultCount: 1, powerUsage: '150-400W/h' },
+  { id: 'washingMachines', name: 'Washing Machines', icon: <WashingMachine className="h-5 w-5" />, defaultCount: 1, powerUsage: '500-1000W/h' },
+  { id: 'coffeeMakers', name: 'Coffee Makers', icon: <Coffee className="h-5 w-5" />, defaultCount: 1, powerUsage: '900-1200W/h' },
+  { id: 'smartphones', name: 'Smartphones', icon: <Smartphone className="h-5 w-5" />, defaultCount: 3, powerUsage: '5-10W/h' },
 ];
 
 const InputForm: React.FC = () => {
@@ -64,44 +65,39 @@ const InputForm: React.FC = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Household Appliances</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <h2 className="text-2xl font-bold mb-6">Household Appliances</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {appliances.map((appliance) => (
-            <div key={appliance.id} className="flex items-center p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-colors duration-200">
-              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 text-purple-600 mr-4">
-                {appliance.icon}
-              </div>
-              <div className="flex-grow">
-                <label htmlFor={appliance.id} className="block text-base font-medium text-gray-700">
-                  {appliance.name}
-                </label>
-              </div>
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  className="h-9 w-9 rounded-full bg-gray-200 hover:bg-purple-200 flex items-center justify-center transition-colors duration-200"
-                  onClick={() => handleApplianceChange(appliance.id, applianceCounts[appliance.id] - 1)}
-                  aria-label={`Decrease ${appliance.name}`}
-                >
-                  <span className="text-gray-600 text-lg font-medium">-</span>
-                </button>
-                <input
-                  type="number"
-                  id={appliance.id}
-                  value={applianceCounts[appliance.id]}
-                  onChange={(e) => handleApplianceChange(appliance.id, parseInt(e.target.value) || 0)}
-                  className="mx-3 w-14 h-9 text-center border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                  min="0"
-                  aria-label={`Number of ${appliance.name}`}
-                />
-                <button
-                  type="button"
-                  className="h-9 w-9 rounded-full bg-gray-200 hover:bg-purple-200 flex items-center justify-center transition-colors duration-200"
-                  onClick={() => handleApplianceChange(appliance.id, applianceCounts[appliance.id] + 1)}
-                  aria-label={`Increase ${appliance.name}`}
-                >
-                  <span className="text-gray-600 text-lg font-medium">+</span>
-                </button>
+            <div key={appliance.id} className="border border-gray-100 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-purple-50 p-3 rounded-full">
+                    <div className="text-purple-600">
+                      {appliance.icon}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="font-medium">{appliance.name}</p>
+                    <span className="text-sm text-gray-600">{appliance.powerUsage}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApplianceChange(appliance.id, Math.max(0, applianceCounts[appliance.id] - 1))}
+                    className="bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-full w-8 h-8 flex items-center justify-center"
+                  >
+                    -
+                  </button>
+                  <span className="w-8 text-center font-medium">{applianceCounts[appliance.id]}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplianceChange(appliance.id, applianceCounts[appliance.id] + 1)}
+                    className="bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-full w-8 h-8 flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -110,11 +106,10 @@ const InputForm: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-purple-50 p-5 rounded-xl">
-          <label htmlFor="startDate" className="block text-base font-medium text-gray-700 mb-2">
+          <label className="block text-base font-medium text-gray-700 mb-2">
             Start Date
           </label>
           <DatePicker
-            id="startDate"
             selected={startDate}
             onChange={(date: Date) => setStartDate(date)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
@@ -123,16 +118,15 @@ const InputForm: React.FC = () => {
           />
         </div>
         <div className="bg-purple-50 p-5 rounded-xl">
-          <label htmlFor="endDate" className="block text-base font-medium text-gray-700 mb-2">
+          <label className="block text-base font-medium text-gray-700 mb-2">
             End Date
           </label>
           <DatePicker
-            id="endDate"
             selected={endDate}
             onChange={(date: Date) => setEndDate(date)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
             dateFormat="MMMM d, yyyy"
-            minDate={new Date(startDate.getTime() + 86400000)} // +1 day from start date
+            minDate={new Date(startDate.getTime() + 86400000)}
             wrapperClassName="w-full"
           />
         </div>

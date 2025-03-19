@@ -107,11 +107,46 @@ async def predict_energy(
         base_consumption = 0
         for appliance_type, count in input_data.appliances.items():
             daily_factor = ENERGY_FACTORS.get(appliance_type, ENERGY_FACTORS["default"])
-            base_consumption += daily_factor * count * days
+            base_consumption += daily_factor * count
         
-        # Add randomness (±15%)
-        randomness = random.uniform(0.85, 1.15)
-        consumption = base_consumption * randomness
+        # Generate historical data with patterns
+        historical_days = days // 2  # Use half the period for historical data
+        historical_values = []
+        for i in range(historical_days):
+            daily_base = base_consumption
+            # Add weekly pattern
+            weekly_pattern = 0.2 * np.sin(2 * np.pi * i / 7)  # 20% variation over a week
+            # Add daily pattern
+            daily_pattern = 0.1 * np.sin(2 * np.pi * i)  # 10% variation within a day
+            # Add random noise
+            noise = np.random.normal(0, 0.05)  # 5% random variation
+            # Combine all patterns
+            daily_value = daily_base * (1 + weekly_pattern + daily_pattern + noise)
+            historical_values.append(daily_value)
+        
+        # Use MSTL model for future predictions
+        dates = pd.date_range(start=start_date, periods=historical_days, freq='D')
+        df = pd.DataFrame({
+            'unique_id': ['ts1'] * historical_days,
+            'ds': dates,
+            'y': historical_values
+        })
+        
+        # Create StatsForecast object with the model
+        sf = StatsForecast(
+            models=[model],
+            freq='D'
+        )
+        
+        # Make prediction for the remaining days
+        future_days = days - historical_days
+        forecast = sf.forecast(df=df, h=future_days)
+        
+        # Extract predictions
+        time_series_predictions = forecast.filter(like='MSTL').iloc[:, 0].tolist()
+        
+        # Calculate total consumption (sum of historical and predicted values)
+        total_consumption = sum(historical_values) + sum(time_series_predictions)
         
         # Create prediction record
         prediction = models.Prediction(
@@ -120,9 +155,11 @@ async def predict_energy(
             appliances=input_data.appliances,
             start_date=start_date,
             end_date=end_date,
-            consumption=consumption,
+            consumption=total_consumption,
             days=days,
-            total_appliances=total_appliances
+            total_appliances=total_appliances,
+            historical_values=historical_values,
+            time_series_predictions=time_series_predictions
         )
         
         db.add(prediction)
@@ -133,6 +170,8 @@ async def predict_energy(
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 @app.get("/forecast/{prediction_id}", response_model=ForecastOutput)
 async def forecast_next_period(prediction_id: str, db: Session = Depends(get_db)):
