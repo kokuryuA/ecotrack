@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random
-from . import models
-from .database import engine, get_db
+import models
+from database import engine, get_db
 from pydantic import BaseModel, EmailStr
 from typing import Dict, Optional, List
 import uuid
