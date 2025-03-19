@@ -10,8 +10,9 @@ import {
   Tooltip,
   Legend,
   ChartData,
-  ChartOptions,
+  ChartOptions
 } from "chart.js";
+import annotationPlugin from 'chartjs-plugin-annotation';
 import { Line } from "react-chartjs-2";
 
 ChartJS.register(
@@ -21,7 +22,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  annotationPlugin
 );
 
 interface ComparisonData {
@@ -167,11 +169,15 @@ const ResultsDisplay: React.FC = () => {
     },
     scales: {
       y: {
+        type: 'linear' as const,
         beginAtZero: true,
         title: {
           display: true,
           text: 'Energy Consumption (kWh)'
         }
+      },
+      x: {
+        type: 'category' as const
       }
     }
   };
