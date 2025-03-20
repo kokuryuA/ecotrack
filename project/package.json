@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.x",
+    "chart.js": "^4.4.1",
     "chartjs-plugin-annotation": "^3.1.0",
     "date-fns": "^3.3.1",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
     "react-datepicker": "^6.2.0",
     "react-dom": "^18.2.0",
     "react-toastify": "^10.0.4",

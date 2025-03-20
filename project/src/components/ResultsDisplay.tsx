@@ -145,7 +145,7 @@ const ResultsDisplay: React.FC = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top' as const,
+        position: 'top',
       },
       title: {
         display: true,
@@ -175,6 +175,10 @@ const ResultsDisplay: React.FC = () => {
         title: {
           display: true,
           text: 'Date'
+        },
+        ticks: {
+          maxRotation: 45,
+          minRotation: 45
         }
       },
       y: {
