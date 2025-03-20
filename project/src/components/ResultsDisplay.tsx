@@ -11,9 +11,6 @@ import {
   Legend,
   ChartData,
   ChartOptions,
-  Scale,
-  ScaleOptionsByType,
-  Chart,
 } from "chart.js";
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Line } from "react-chartjs-2";
@@ -173,7 +170,7 @@ const ResultsDisplay: React.FC = () => {
     },
     scales: {
       x: {
-        type: 'category' as const,
+        type: 'category',
         display: true,
         title: {
           display: true,
@@ -181,9 +178,9 @@ const ResultsDisplay: React.FC = () => {
         }
       },
       y: {
-        type: 'linear' as const,
+        type: 'linear',
         display: true,
-        position: 'left' as const,
+        position: 'left',
         beginAtZero: true,
         title: {
           display: true,
