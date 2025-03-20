@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://ecotrack-api-uw71.onrender.com';
 
 export const energyApi = {
   async predictEnergyConsumption(data: PredictionData): Promise<PredictionResponse> {
