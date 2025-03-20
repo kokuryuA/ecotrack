@@ -10,11 +10,15 @@ import {
   Tooltip,
   Legend,
   ChartData,
-  ChartOptions
+  ChartOptions,
+  Scale,
+  ScaleOptionsByType,
+  Chart,
 } from "chart.js";
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Line } from "react-chartjs-2";
 
+// Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -168,16 +172,23 @@ const ResultsDisplay: React.FC = () => {
       }
     },
     scales: {
+      x: {
+        type: 'category' as const,
+        display: true,
+        title: {
+          display: true,
+          text: 'Date'
+        }
+      },
       y: {
         type: 'linear' as const,
+        display: true,
+        position: 'left' as const,
         beginAtZero: true,
         title: {
           display: true,
           text: 'Energy Consumption (kWh)'
         }
-      },
-      x: {
-        type: 'category' as const
       }
     }
   };
