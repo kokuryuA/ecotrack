@@ -13,7 +13,6 @@ import PredictionHistory from './components/PredictionHistory';
 import { useEnergyStore } from "./store/energyStore";
 import Navigation from './components/Navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
-import PredictionResults from './components/PredictionResults';
 
 function App() {
   const { isAuthenticated, checkUser } = useAuthStore();
@@ -323,7 +322,7 @@ function App() {
         {backgroundPattern}
         <div className="relative z-10 flex-grow">
           <Header />
-          <main className="container mx-auto px-4 py-4">
+          <main className="container mx-auto px-6 py-6 max-w-7xl">
             <Navigation />
             
             <AnimatePresence mode="wait">
@@ -332,7 +331,7 @@ function App() {
                 <Route path="/history" element={<PredictionHistory />} />
                 <Route path="/about" element={
                   <div className="transform-gpu">
-                    <div className="bg-white rounded-xl shadow-lg p-4">
+                    <div className="bg-white rounded-xl shadow-lg p-6">
                       <h2 className="text-xl font-bold text-purple-800 mb-3">About Energy Consumption Predictor</h2>
                       <p className="text-gray-700 text-sm">
                         This application helps you predict your energy consumption based on your household appliances and usage patterns.
@@ -343,7 +342,7 @@ function App() {
                 } />
                 <Route path="/faq" element={
                   <div className="transform-gpu">
-                    <div className="bg-white rounded-xl shadow-lg p-4">
+                    <div className="bg-white rounded-xl shadow-lg p-6">
                       <h2 className="text-xl font-bold text-purple-800 mb-3">Frequently Asked Questions</h2>
                       <div className="space-y-3">
                         <div className="bg-purple-50 p-3 rounded-lg">
@@ -360,7 +359,7 @@ function App() {
                 } />
                 <Route path="/contact" element={
                   <div className="transform-gpu">
-                    <div className="bg-white rounded-xl shadow-lg p-4">
+                    <div className="bg-white rounded-xl shadow-lg p-6">
                       <h2 className="text-xl font-bold text-purple-800 mb-3">Contact Us</h2>
                       <p className="text-gray-700 text-sm">
                         Have questions or feedback? Reach out to us at support@energypredictor.com
@@ -374,7 +373,7 @@ function App() {
           <Footer />
         </div>
         <ToastContainer 
-          position="bottom-right"
+          position="top-right"
           autoClose={5000}
           hideProgressBar={false}
           newestOnTop
@@ -384,6 +383,7 @@ function App() {
           draggable
           pauseOnHover
           theme="dark"
+          className="z-50"
         />
       </div>
     </Router>
