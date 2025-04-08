@@ -19,7 +19,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ecotrack.netlify.app", "http://localhost:5173", "https://ecotrack-api-uw71.onrender.com"],  # Frontend URLs
+    allow_origins=["https://ecotrack.netlify.app", "http://localhost:5173", "http://localhost:5174", "https://ecotrack-api-uw71.onrender.com"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,7 +68,7 @@ async def predict_energy(input_data: ApplianceInput):
         end_date = datetime.strptime(input_data.end_date, "%Y-%m-%d").date()
         
         # Calculate number of days
-        days = (end_date - start_date).days
+        days = (end_date - start_date).days + 1  # Add 1 to include both start and end dates
         if days <= 0:
             raise HTTPException(status_code=400, detail="End date must be after start date")
         
@@ -83,20 +83,21 @@ async def predict_energy(input_data: ApplianceInput):
             daily_factor = ENERGY_FACTORS.get(appliance_type, ENERGY_FACTORS["default"])
             base_consumption += daily_factor * count
         
-        # Generate historical data with patterns
-        historical_days = days // 2  # Use half the period for historical data
-        historical_values = []
-        for i in range(historical_days):
-            daily_base = base_consumption
-            # Add weekly pattern
-            weekly_pattern = 0.2 * np.sin(2 * np.pi * i / 7)  # 20% variation over a week
-            # Add daily pattern
-            daily_pattern = 0.1 * np.sin(2 * np.pi * i)  # 10% variation within a day
-            # Add random noise
-            noise = np.random.normal(0, 0.05)  # 5% random variation
-            # Combine all patterns
-            daily_value = daily_base * (1 + weekly_pattern + daily_pattern + noise)
-            historical_values.append(daily_value)
+        # Static historical values (21 days)
+        base_historical_values = [
+            100, 105, 102, 108, 106, 110, 105,  # Week 1
+            103, 107, 104, 109, 108, 112, 107,  # Week 2
+            105, 108, 106, 111, 110, 115, 109   # Week 3
+        ]
+        
+        # Calculate how many historical days we need
+        historical_days = min(days // 2, len(base_historical_values))
+        
+        # Calculate scale factor based on base consumption
+        scale_factor = base_consumption / np.mean(base_historical_values)
+        
+        # Scale historical values
+        historical_values = [v * scale_factor for v in base_historical_values[:historical_days]]
         
         # Use MSTL model for future predictions
         dates = pd.date_range(start=start_date, periods=historical_days, freq='D')
@@ -113,14 +114,16 @@ async def predict_energy(input_data: ApplianceInput):
         )
         
         # Make prediction for the remaining days
-        future_days = days - historical_days
-        forecast = sf.forecast(df=df, h=future_days)
-        
-        # Extract predictions
-        time_series_predictions = forecast.filter(like='MSTL').iloc[:, 0].tolist()
+        future_days = days - len(historical_values)
+        if future_days > 0:
+            forecast = sf.forecast(df=df, h=future_days)
+            # Extract and scale predictions
+            time_series_predictions = forecast.filter(like='MSTL').iloc[:, 0].tolist()
+        else:
+            time_series_predictions = []
         
         # Calculate total consumption
-        total_consumption = sum(historical_values) + sum(time_series_predictions)
+        total_consumption = sum(historical_values) + (sum(time_series_predictions) if time_series_predictions else 0)
         
         return {
             "id": str(uuid.uuid4()),

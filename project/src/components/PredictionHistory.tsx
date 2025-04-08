@@ -1,29 +1,41 @@
 import React, { useEffect } from 'react';
 import { useEnergyStore } from '../store/energyStore';
 import { format } from 'date-fns';
-import { History, Calendar, Zap } from 'lucide-react';
+import { History, Calendar, Zap, Loader2 } from 'lucide-react';
 
+// Types
+interface Prediction {
+  id: string;
+  start_date: string;
+  end_date: string;
+  consumption: number;
+  days: number;
+  total_appliances: number;
+}
+
+// Component
 const PredictionHistory: React.FC = () => {
+  // Hooks
   const { predictionHistory, fetchPredictionHistory, loading } = useEnergyStore();
   
+  // Effects
   useEffect(() => {
-    console.log('PredictionHistory mounted');
     fetchPredictionHistory();
-  }, []);
+  }, [fetchPredictionHistory]);
   
-  console.log('Current prediction history:', predictionHistory);
-  
+  // Loading state
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 flex justify-center items-center h-60">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-6"></div>
+          <Loader2 className="w-16 h-16 text-purple-600 animate-spin mx-auto mb-6" />
           <p className="text-gray-600 text-lg">Loading prediction history...</p>
         </div>
       </div>
     );
   }
   
+  // Empty state
   if (!predictionHistory.length) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 text-center">
@@ -36,21 +48,34 @@ const PredictionHistory: React.FC = () => {
     );
   }
   
+  // Render prediction cards
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold text-gray-900">Prediction History</h2>
+      <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
+        <History className="w-6 h-6 mr-2 text-purple-600" />
+        Prediction History
+      </h2>
       <div className="grid gap-4">
-        {predictionHistory.map((prediction) => (
-          <div key={prediction.id} className="bg-white p-6 rounded-xl shadow-lg">
+        {predictionHistory.map((prediction: Prediction) => (
+          <div 
+            key={prediction.id} 
+            className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+          >
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <p className="text-sm text-gray-500">Date Range</p>
+                <p className="text-sm text-gray-500 flex items-center">
+                  <Calendar className="w-4 h-4 mr-1" />
+                  Date Range
+                </p>
                 <p className="font-medium">
                   {format(new Date(prediction.start_date), 'MMM d, yyyy')} - {format(new Date(prediction.end_date), 'MMM d, yyyy')}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Consumption</p>
+                <p className="text-sm text-gray-500 flex items-center">
+                  <Zap className="w-4 h-4 mr-1" />
+                  Total Consumption
+                </p>
                 <p className="font-medium">{prediction.consumption.toFixed(1)} kWh</p>
               </div>
             </div>

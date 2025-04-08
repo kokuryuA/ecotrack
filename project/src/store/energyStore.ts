@@ -18,11 +18,11 @@ interface PredictionResponse {
   consumption: number;
   days: number;
   total_appliances: number;
-  created_at: string;
+  historical_values: number[];
+  time_series_predictions: number[];
+  dates: string[];
   start_date: string;
   end_date: string;
-  appliances: Appliances;
-  time_series_predictions: number[];
 }
 
 interface ForecastResponse {
@@ -44,6 +44,8 @@ interface EnergyStore {
   fetchForecast: () => Promise<void>;
   fetchPredictionHistory: () => Promise<void>;
 }
+
+const API_URL = "http://localhost:8000";
 
 // Helper functions
 const calculateConsumption = (data: PredictionRequest): number => {
@@ -171,7 +173,7 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
       const { data: existingUser, error: userError } = await supabase
         .from("users")
         .select("id")
-        .eq("email", user.email)
+        .eq("auth_user_id", user.id)
         .single();
 
       let userId = existingUser?.id;
@@ -179,56 +181,69 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
       if (!existingUser) {
         const { data: newUser, error: createError } = await supabase
           .from("users")
-          .insert([{ auth_user_id: user.id, email: user.email }])
+          .insert([
+            { 
+              email: user.email,
+              auth_user_id: user.id,
+              auth_provider: 'local'
+            }
+          ])
           .select()
           .single();
 
         if (createError) {
-          if (createError.code === "23505") {
-            const { data: retryUser } = await supabase
-              .from("users")
-              .select("id")
-              .eq("email", user.email)
-              .single();
-            userId = retryUser?.id;
-          } else {
-            throw createError;
-          }
-        } else {
-          userId = newUser.id;
+          console.error("Error creating user:", createError);
+          throw createError;
         }
+        userId = newUser.id;
       }
 
       if (!userId) throw new Error("Could not get or create user");
 
-      // Calculate consumption and generate time series predictions
-      const consumption = calculateConsumption(data);
-      const days = calculateDays(data.start_date, data.end_date);
-      const dailyConsumption = consumption / days;
-      const timeSeriesPredictions = generateTimeSeriesPredictions(
-        dailyConsumption,
-        days
-      );
+      // Make API call to backend
+      const response = await fetch(`${API_URL}/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-      // Create prediction with time series data
-      const { data: prediction, error } = await supabase
+      if (!response.ok) {
+        throw new Error('Failed to fetch prediction');
+      }
+
+      const prediction = await response.json();
+      
+      // Calculate days before using it
+      const days = calculateDays(data.start_date, data.end_date);
+      
+      // Store prediction in Supabase
+      const { data: savedPrediction, error } = await supabase
         .from("predictions")
         .insert([
           {
             user_id: userId,
-            ...data,
-            consumption,
-            days,
+            appliances: data.appliances,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            consumption: prediction.consumption,
+            days: days,
             total_appliances: calculateTotalAppliances(data.appliances),
-            time_series_predictions: timeSeriesPredictions,
+            historical_values: prediction.historical_values,
+            time_series_predictions: prediction.time_series_predictions
           },
         ])
         .select()
         .single();
 
-      if (error) throw error;
-      set({ prediction });
-      return prediction;
+      if (error) {
+        console.error("Error saving prediction:", error);
+        throw error;
+      }
+
+      set({ prediction: savedPrediction });
+      return savedPrediction;
     } catch (error) {
       console.error("Error creating prediction:", error);
       throw error;

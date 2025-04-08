@@ -165,7 +165,7 @@ const Login: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200 text-gray-800"
                     placeholder="you@example.com"
                   />
                 </motion.div>
@@ -197,7 +197,7 @@ const Login: React.FC = () => {
                       required={!isLogin}
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200 text-gray-800"
                       placeholder="+1 (555) 000-0000"
                     />
                   </motion.div>
@@ -224,7 +224,7 @@ const Login: React.FC = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200 text-gray-800"
                     placeholder="••••••••"
                   />
                 </motion.div>
@@ -256,7 +256,7 @@ const Login: React.FC = () => {
                       required={!isLogin}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`block w-full pl-10 pr-3 py-3 border bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200 ${
+                      className={`block w-full pl-10 pr-3 py-3 border bg-white/50 backdrop-blur-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-shadow duration-200 text-gray-800 ${
                         confirmPassword && password !== confirmPassword
                           ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                           : 'border-gray-300'

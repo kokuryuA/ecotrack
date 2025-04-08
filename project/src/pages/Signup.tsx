@@ -2,13 +2,56 @@ import React, { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
 import { Zap, Mail, Lock, User, ArrowRight, Check } from "lucide-react";
 import { toast } from "react-toastify";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
+// Types
+interface FormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+interface PasswordStrength {
+  hasMinLength: boolean;
+  hasUpperCase: boolean;
+  hasLowerCase: boolean;
+  hasNumber: boolean;
+  hasSpecialChar: boolean;
+}
+
+// Constants
+const FORM_VARIANTS = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
+
+const INPUT_ANIMATION = {
+  whileHover: { scale: 1.01 },
+  whileTap: { scale: 0.99 }
+};
+
+const PASSWORD_REQUIREMENTS = [
+  { id: 'minLength', label: 'At least 8 characters', test: (pass: string) => pass.length >= 8 },
+  { id: 'upperCase', label: 'Uppercase letter', test: (pass: string) => /[A-Z]/.test(pass) },
+  { id: 'lowerCase', label: 'Lowercase letter', test: (pass: string) => /[a-z]/.test(pass) },
+  { id: 'number', label: 'Number', test: (pass: string) => /[0-9]/.test(pass) },
+  { id: 'specialChar', label: 'Special character', test: (pass: string) => /[!@#$%^&*(),.?":{}|<>]/.test(pass) }
+];
+
+// Component
 const Signup: React.FC = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  // State
+  const [formData, setFormData] = useState<FormData>({
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  // Hooks
   const { signup, isLoading, error, clearError } = useAuthStore();
 
+  // Effects
   useEffect(() => {
     if (error) {
       toast.error(error);
@@ -16,58 +59,86 @@ const Signup: React.FC = () => {
     }
   }, [error, clearError]);
 
+  // Handlers
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password || !confirmPassword) {
+    if (!formData.email || !formData.password || !formData.confirmPassword) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
+
     try {
-      await signup(email, password, confirmPassword);
+      await signup(formData.email, formData.password);
       toast.success("Account created successfully!");
     } catch (error) {
       // Error is already handled in the store
     }
   };
 
-  // Password strength indicators
-  const hasMinLength = password.length >= 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  // Computed
+  const passwordStrength: PasswordStrength = {
+    hasMinLength: PASSWORD_REQUIREMENTS[0].test(formData.password),
+    hasUpperCase: PASSWORD_REQUIREMENTS[1].test(formData.password),
+    hasLowerCase: PASSWORD_REQUIREMENTS[2].test(formData.password),
+    hasNumber: PASSWORD_REQUIREMENTS[3].test(formData.password),
+    hasSpecialChar: PASSWORD_REQUIREMENTS[4].test(formData.password)
+  };
 
+  // Render
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl">
+    <motion.div 
+      className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center px-4 py-12"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div 
+        className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl"
+        variants={FORM_VARIANTS}
+        initial="hidden"
+        animate="visible"
+        transition={{ duration: 0.5, type: "spring" }}
+      >
+        {/* Header */}
         <div className="text-center">
-          <div className="flex justify-center">
+          <motion.div 
+            className="flex justify-center"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
             <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-3 rounded-xl">
               <Zap className="h-8 w-8 text-white" />
             </div>
-          </div>
+          </motion.div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
             Create your account
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Already have an account?
-            <a
-              href="/login"
-              className="ml-1 font-medium text-purple-600 hover:text-purple-500 focus:outline-none focus:underline transition-colors duration-200"
+            Already have an account?{" "}
+            <Link
+              to="/login"
+              className="font-medium text-purple-600 hover:text-purple-500 focus:outline-none focus:underline transition-colors duration-200"
             >
               Sign in
-            </a>
+            </Link>
           </p>
         </div>
 
+        {/* Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
+            {/* Email Input */}
             <div>
               <label
                 htmlFor="email"
@@ -75,7 +146,10 @@ const Signup: React.FC = () => {
               >
                 Email address
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <motion.div 
+                className="mt-1 relative rounded-md shadow-sm"
+                {...INPUT_ANIMATION}
+              >
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
@@ -85,14 +159,15 @@ const Signup: React.FC = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
+                  placeholder="Enter your email"
                 />
-              </div>
+              </motion.div>
             </div>
 
+            {/* Password Input */}
             <div>
               <label
                 htmlFor="password"
@@ -100,7 +175,10 @@ const Signup: React.FC = () => {
               >
                 Password
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <motion.div 
+                className="mt-1 relative rounded-md shadow-sm"
+                {...INPUT_ANIMATION}
+              >
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
@@ -110,83 +188,39 @@ const Signup: React.FC = () => {
                   type="password"
                   autoComplete="new-password"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800"
+                  placeholder="Enter your password"
                 />
-              </div>
+              </motion.div>
 
-              {/* Password strength indicators */}
+              {/* Password Strength Indicators */}
               <div className="mt-3 space-y-2">
                 <p className="text-xs font-medium text-gray-700">
                   Password strength:
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div
-                    className={`flex items-center ${
-                      hasMinLength ? "text-green-600" : "text-gray-500"
-                    }`}
-                  >
-                    {hasMinLength ? (
-                      <Check className="h-3 w-3 mr-1" />
-                    ) : (
-                      <span className="h-3 w-3 mr-1 rounded-full border border-gray-300"></span>
-                    )}
-                    At least 8 characters
-                  </div>
-                  <div
-                    className={`flex items-center ${
-                      hasUpperCase ? "text-green-600" : "text-gray-500"
-                    }`}
-                  >
-                    {hasUpperCase ? (
-                      <Check className="h-3 w-3 mr-1" />
-                    ) : (
-                      <span className="h-3 w-3 mr-1 rounded-full border border-gray-300"></span>
-                    )}
-                    Uppercase letter
-                  </div>
-                  <div
-                    className={`flex items-center ${
-                      hasLowerCase ? "text-green-600" : "text-gray-500"
-                    }`}
-                  >
-                    {hasLowerCase ? (
-                      <Check className="h-3 w-3 mr-1" />
-                    ) : (
-                      <span className="h-3 w-3 mr-1 rounded-full border border-gray-300"></span>
-                    )}
-                    Lowercase letter
-                  </div>
-                  <div
-                    className={`flex items-center ${
-                      hasNumber ? "text-green-600" : "text-gray-500"
-                    }`}
-                  >
-                    {hasNumber ? (
-                      <Check className="h-3 w-3 mr-1" />
-                    ) : (
-                      <span className="h-3 w-3 mr-1 rounded-full border border-gray-300"></span>
-                    )}
-                    Number
-                  </div>
-                  <div
-                    className={`flex items-center ${
-                      hasSpecialChar ? "text-green-600" : "text-gray-500"
-                    }`}
-                  >
-                    {hasSpecialChar ? (
-                      <Check className="h-3 w-3 mr-1" />
-                    ) : (
-                      <span className="h-3 w-3 mr-1 rounded-full border border-gray-300"></span>
-                    )}
-                    Special character
-                  </div>
+                  {PASSWORD_REQUIREMENTS.map(({ id, label, test }) => (
+                    <div
+                      key={id}
+                      className={`flex items-center ${
+                        test(formData.password) ? "text-green-600" : "text-gray-500"
+                      }`}
+                    >
+                      {test(formData.password) ? (
+                        <Check className="h-3 w-3 mr-1" />
+                      ) : (
+                        <span className="h-3 w-3 mr-1 rounded-full border border-gray-300" />
+                      )}
+                      {label}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
+            {/* Confirm Password Input */}
             <div>
               <label
                 htmlFor="confirmPassword"
@@ -194,7 +228,10 @@ const Signup: React.FC = () => {
               >
                 Confirm Password
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <motion.div 
+                className="mt-1 relative rounded-md shadow-sm"
+                {...INPUT_ANIMATION}
+              >
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
@@ -204,17 +241,17 @@ const Signup: React.FC = () => {
                   type="password"
                   autoComplete="new-password"
                   required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-purple-500 focus:border-purple-500 ${
-                    confirmPassword && password !== confirmPassword
-                      ? "border-red-300 text-red-900 placeholder-red-300"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-800 ${
+                    formData.confirmPassword && formData.password !== formData.confirmPassword
+                      ? "border-red-300"
                       : "border-gray-300"
                   }`}
-                  placeholder="••••••••"
+                  placeholder="Confirm your password"
                 />
-              </div>
-              {confirmPassword && password !== confirmPassword && (
+              </motion.div>
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
                 <p className="mt-1 text-sm text-red-600">
                   Passwords do not match
                 </p>
@@ -222,6 +259,7 @@ const Signup: React.FC = () => {
             </div>
           </div>
 
+          {/* Terms and Conditions */}
           <div className="flex items-center">
             <input
               id="terms"
@@ -242,24 +280,23 @@ const Signup: React.FC = () => {
             </label>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200"
-            >
-              {isLoading ? (
-                <span className="absolute right-0 inset-y-0 flex items-center pr-3">
-                  <div className="h-5 w-5 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
-                </span>
-              ) : (
-                <span className="absolute right-0 inset-y-0 flex items-center pr-3">
-                  <ArrowRight className="h-5 w-5 text-white group-hover:translate-x-1 transition-transform duration-200" />
-                </span>
-              )}
-              Create account
-            </button>
-          </div>
+          {/* Submit Button */}
+          <motion.button
+            type="submit"
+            disabled={isLoading}
+            className="group relative w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                Create account
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </>
+            )}
+          </motion.button>
         </form>
 
         <div className="mt-6">
@@ -303,8 +340,8 @@ const Signup: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
