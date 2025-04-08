@@ -45,7 +45,7 @@ interface EnergyStore {
   fetchPredictionHistory: () => Promise<void>;
 }
 
-const API_URL = "http://localhost:8000";
+const API_URL = "https://ecotrack-api-uw71.onrender.com";
 
 // Helper functions
 const calculateConsumption = (data: PredictionRequest): number => {
