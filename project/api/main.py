@@ -19,7 +19,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ecotrack.netlify.app", "http://localhost:5173", "http://localhost:5174", "https://ecotrack-api-uw71.onrender.com"],  # Frontend URLs
+    allow_origins=["https://ecotrack22.netlify.app", "http://localhost:5173", "http://localhost:5174", "https://ecotrack-api-uw71.onrender.com"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
