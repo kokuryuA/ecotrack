@@ -238,15 +238,15 @@ const memoizedCalculateConsumption = (() => {
     }
     
     const ENERGY_FACTORS = {
-      lightbulbs: 0.3,
-      tvs: 2.5,
-      computers: 1.8,
-      fans: 0.5,
-      refrigerators: 4.5,
-      washingMachines: 1.2,
-      coffeeMakers: 0.4,
-      smartphones: 0.1,
-      default: 1.0,
+      lightbulbs: 0.3 * 24, // kWh per day (24 hours)
+      tvs: 2.5 * 6, // kWh per day (assumed 6 hours usage)
+      computers: 1.8 * 8, // kWh per day (assumed 8 hours usage)
+      fans: 0.5 * 12, // kWh per day (assumed 12 hours usage)
+      refrigerators: 4.5 * 24, // kWh per day (24 hours)
+      washingMachines: 1.2 * 2, // kWh per day (assumed 2 hours usage)
+      coffeeMakers: 0.4 * 1, // kWh per day (assumed 1 hour usage)
+      smartphones: 0.1 * 12, // kWh per day (assumed 12 hours charging)
+      default: 1.0 * 24, // kWh per day
     };
 
     const startDate = new Date(data.start_date);
@@ -255,17 +255,27 @@ const memoizedCalculateConsumption = (() => {
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    let baseConsumption = 0;
+    // Calculate daily consumption for each appliance
+    let dailyConsumption = 0;
     for (const [appliance, count] of Object.entries(data.appliances)) {
       const factor =
         ENERGY_FACTORS[appliance as keyof typeof ENERGY_FACTORS] ||
         ENERGY_FACTORS.default;
-      baseConsumption += factor * count * days;
+      dailyConsumption += factor * count;
     }
 
-    // Add some randomness (±15%)
+    // Calculate total consumption for the entire period
+    const totalConsumption = dailyConsumption * days;
+
+    // Add seasonal variation (±10% based on month)
+    const month = startDate.getMonth();
+    const seasonalFactor = 1 + Math.sin((month / 12) * 2 * Math.PI) * 0.1;
+
+    // Add some daily randomness (±15%)
     const randomness = 0.85 + Math.random() * 0.3;
-    const result = baseConsumption * randomness;
+
+    // Calculate final consumption with all factors
+    const result = totalConsumption * seasonalFactor * randomness;
     cache.set(cacheKey, result);
     return result;
   };
@@ -284,17 +294,29 @@ const calculateTotalAppliances = (appliances: Appliances): number => {
 // Optimized time series generation
 const generateTimeSeriesPredictions = (
   dailyConsumption: number,
-  days: number
+  days: number,
+  startDate: string
 ): number[] => {
-  // Pre-calculate weekly pattern
+  const start = new Date(startDate);
   const weeklyPattern = [100, 105, 102, 108, 106, 110, 105];
   const scaleFactor = dailyConsumption / 100;
   
-  // Use Array.from for better performance
   return Array.from({ length: days }, (_, i) => {
-    const baseValue = weeklyPattern[i % 7] * scaleFactor;
-    const variation = 0.9 + Math.random() * 0.2;
-    return baseValue * variation;
+    const currentDate = new Date(start);
+    currentDate.setDate(currentDate.getDate() + i);
+    
+    // Weekly pattern
+    const dayOfWeek = currentDate.getDay();
+    const baseValue = weeklyPattern[dayOfWeek] * scaleFactor;
+    
+    // Seasonal variation (±10%)
+    const month = currentDate.getMonth();
+    const seasonalFactor = 1 + Math.sin((month / 12) * 2 * Math.PI) * 0.1;
+    
+    // Daily random variation (±10%)
+    const dailyVariation = 0.9 + Math.random() * 0.2;
+    
+    return baseValue * seasonalFactor * dailyVariation;
   });
 };
 

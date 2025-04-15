@@ -198,7 +198,20 @@ const ResultsDisplay: React.FC = () => {
         },
         ticks: {
           maxRotation: 45,
-          minRotation: 45
+          minRotation: 45,
+          autoSkip: true,
+          maxTicksLimit: 20, // Show maximum 20 ticks on x-axis
+          callback: function(val, index) {
+            // Show date every 5 days for longer periods
+            const dates = comparisonData?.dates || [];
+            if (dates.length > 30) {
+              return index % 5 === 0 ? dates[index] : '';
+            }
+            return dates[index];
+          }
+        },
+        grid: {
+          display: false
         }
       },
       y: {
@@ -209,6 +222,29 @@ const ResultsDisplay: React.FC = () => {
         title: {
           display: true,
           text: 'Energy Consumption (kWh)'
+        },
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        }
+      }
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false
+    },
+    elements: {
+      line: {
+        tension: 0.3 // Add slight curve to lines
+      },
+      point: {
+        radius: function(context) {
+          // Show points only every 5 days for longer periods
+          const dates = comparisonData?.dates || [];
+          if (dates.length > 30) {
+            return context.dataIndex % 5 === 0 ? 3 : 0;
+          }
+          return 2;
         }
       }
     }

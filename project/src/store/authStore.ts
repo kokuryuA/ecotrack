@@ -89,6 +89,22 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
           
           if (data.user) {
+            // Create user in our database
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: data.user.email,
+                auth0_id: data.user.id
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to create user in database');
+            }
+
             const { error: profileError } = await supabase
               .from('users')
               .update({ phone_number: phoneNumber })
