@@ -487,6 +487,7 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
       let userId = existingUser?.id;
 
       if (!existingUser) {
+        // Try to insert, but handle duplicate gracefully
         const { data: newUser, error: createError } = await supabase
           .from("users")
           .insert([
@@ -499,11 +500,23 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
           .select()
           .single();
 
-        if (createError) {
-          console.error("Error creating user:", createError);
+        if (createError && createError.code === '23505') {
+          // Duplicate email, fetch the user by email
+          const { data: userByEmail, error: fetchError } = await supabase
+            .from("users")
+            .select("id")
+            .eq("email", user.email)
+            .single();
+          if (userByEmail) {
+            userId = userByEmail.id;
+          } else {
+            throw fetchError || createError;
+          }
+        } else if (createError) {
           throw createError;
+        } else {
+          userId = newUser.id;
         }
-        userId = newUser.id;
       }
 
       if (!userId) throw new Error("Could not get or create user");
