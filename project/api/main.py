@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import random
@@ -9,9 +9,6 @@ import numpy as np
 import pandas as pd
 from statsforecast import StatsForecast
 from statsforecast.models import MSTL, AutoARIMA
-from sqlalchemy.orm import Session
-from database import get_db
-from models import User, Prediction, Forecast
 
 app = FastAPI(
     title="Energy Consumption Predictor API",
@@ -62,10 +59,6 @@ class ComparisonInput(BaseModel):
     start_date: str
     end_date: str
     historical_values: Optional[List[float]] = None
-
-class UserCreate(BaseModel):
-    email: str
-    auth0_id: str
 
 @app.post("/predict")
 async def predict_energy(input_data: ApplianceInput):
@@ -154,40 +147,6 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
-
-@app.post("/users")
-async def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    try:
-        # Check if user already exists
-        existing_user = db.query(User).filter(
-            (User.email == user_data.email) | 
-            (User.auth0_id == user_data.auth0_id)
-        ).first()
-        
-        if existing_user:
-            if existing_user.email == user_data.email:
-                return {"id": str(existing_user.id), "message": "User with this email already exists"}
-            else:
-                return {"id": str(existing_user.id), "message": "User with this Auth0 ID already exists"}
-        
-        # Create new user
-        new_user = User(
-            email=user_data.email,
-            auth0_id=user_data.auth0_id
-        )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        
-        return {
-            "id": str(new_user.id),
-            "email": new_user.email,
-            "auth0_id": new_user.auth0_id,
-            "created_at": new_user.created_at
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

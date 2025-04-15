@@ -197,11 +197,10 @@ class PredictionCache {
   }
 
   private areInputsSimilar(input1: PredictionRequest, input2: PredictionRequest): boolean {
-    // Check if dates are within 7 days of each other
-    const date1Start = new Date(input1.start_date).getTime();
-    const date2Start = new Date(input2.start_date).getTime();
-    const dateDiff = Math.abs(date1Start - date2Start);
-    if (dateDiff > 7 * 24 * 60 * 60 * 1000) return false;
+    // Only allow similar if the number of days is the same
+    const days1 = Math.ceil((new Date(input1.end_date).getTime() - new Date(input1.start_date).getTime()) / (1000 * 60 * 60 * 24));
+    const days2 = Math.ceil((new Date(input2.end_date).getTime() - new Date(input2.start_date).getTime()) / (1000 * 60 * 60 * 24));
+    if (days1 !== days2) return false;
 
     // Check if appliance counts are similar (within 20%)
     const appliances1 = Object.entries(input1.appliances);
