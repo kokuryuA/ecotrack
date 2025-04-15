@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
@@ -96,7 +96,7 @@ const appliances: Appliance[] = [
 ];
 
 const InputForm: React.FC = () => {
-  const { fetchPrediction, fetchForecast, setLoading } = useEnergyStore();
+  const { fetchPrediction, loading } = useEnergyStore();
   const { isAuthenticated } = useAuthStore();
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(() => {
@@ -111,7 +111,14 @@ const InputForm: React.FC = () => {
     }), {})
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleApplianceChange = useCallback((id: string, value: number) => {
+    setApplianceCounts(prev => ({
+      ...prev,
+      [id]: Math.max(0, value)
+    }));
+  }, []);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isAuthenticated) {
@@ -119,25 +126,31 @@ const InputForm: React.FC = () => {
       return;
     }
 
+    if (loading) {
+      toast.info('Prediction is already in progress...');
+      return;
+    }
+
     try {
+      const toastId = toast.loading('Generating prediction...');
+      
       await fetchPrediction({
         appliances: applianceCounts,
         start_date: format(startDate, 'yyyy-MM-dd'),
         end_date: format(endDate, 'yyyy-MM-dd')
       });
-      toast.success('Prediction generated successfully!');
+      
+      toast.update(toastId, {
+        render: 'Prediction generated successfully!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Error generating prediction:', error);
-      toast.error('Failed to generate prediction');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate prediction');
     }
-  };
-
-  const handleApplianceChange = (id: string, value: number) => {
-    setApplianceCounts(prev => ({
-      ...prev,
-      [id]: Math.max(0, value)
-    }));
-  };
+  }, [isAuthenticated, applianceCounts, startDate, endDate, fetchPrediction, loading]);
 
   return (
     <>

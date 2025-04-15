@@ -39,46 +39,237 @@ interface EnergyStore {
   prediction: PredictionResponse | null;
   forecast: ForecastResponse | null;
   predictionHistory: PredictionResponse[];
+  hasMoreHistory: boolean;
   setLoading: (loading: boolean) => void;
   fetchPrediction: (data: PredictionRequest) => Promise<void>;
   fetchForecast: () => Promise<void>;
-  fetchPredictionHistory: () => Promise<void>;
+  fetchPredictionHistory: (page?: number) => Promise<void>;
+  clearPredictionHistory: () => void;
 }
 
 const API_URL = "https://ecotrack-api-uw71.onrender.com";
 
-// Helper functions
-const calculateConsumption = (data: PredictionRequest): number => {
-  const ENERGY_FACTORS = {
-    lightbulbs: 0.3,
-    tvs: 2.5,
-    computers: 1.8,
-    fans: 0.5,
-    refrigerators: 4.5,
-    washingMachines: 1.2,
-    coffeeMakers: 0.4,
-    smartphones: 0.1,
-    default: 1.0,
-  };
+interface CachedPrediction {
+  data: PredictionResponse;
+  timestamp: number;
+  expiresAt: number;
+  input: PredictionRequest;
+  user_id: string;
+}
 
-  const startDate = new Date(data.start_date);
-  const endDate = new Date(data.end_date);
-  const days = Math.ceil(
-    (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-  );
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const MAX_CACHE_SIZE = 100; // Maximum number of cached predictions
 
-  let baseConsumption = 0;
-  for (const [appliance, count] of Object.entries(data.appliances)) {
-    const factor =
-      ENERGY_FACTORS[appliance as keyof typeof ENERGY_FACTORS] ||
-      ENERGY_FACTORS.default;
-    baseConsumption += factor * count * days;
+class PredictionCache {
+  private cache: Map<string, CachedPrediction>;
+  private maxSize: number;
+
+  constructor(maxSize: number = MAX_CACHE_SIZE) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
   }
 
-  // Add some randomness (±15%)
-  const randomness = 0.85 + Math.random() * 0.3;
-  return baseConsumption * randomness;
-};
+  private async loadFromDatabase(userId: string) {
+    try {
+      const { data: cachedPredictions, error } = await supabase
+        .from('prediction_cache')
+        .select('*')
+        .eq('user_id', userId)
+        .gt('expires_at', new Date().toISOString());
+
+      if (error) throw error;
+
+      if (cachedPredictions) {
+        this.cache = new Map(
+          cachedPredictions.map(pred => [
+            pred.cache_key,
+            {
+              data: pred.prediction_data,
+              timestamp: new Date(pred.created_at).getTime(),
+              expiresAt: new Date(pred.expires_at).getTime(),
+              input: pred.input_data,
+              user_id: pred.user_id
+            }
+          ])
+        );
+      }
+    } catch (error) {
+      console.error('Error loading cache from database:', error);
+      this.cache = new Map();
+    }
+  }
+
+  private async saveToDatabase(key: string, prediction: CachedPrediction) {
+    try {
+      const { error } = await supabase
+        .from('prediction_cache')
+        .upsert({
+          cache_key: key,
+          user_id: prediction.user_id,
+          prediction_data: prediction.data,
+          input_data: prediction.input,
+          created_at: new Date(prediction.timestamp).toISOString(),
+          expires_at: new Date(prediction.expiresAt).toISOString()
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving cache to database:', error);
+    }
+  }
+
+  private async clearExpiredFromDatabase() {
+    try {
+      const { error } = await supabase
+        .from('prediction_cache')
+        .delete()
+        .lt('expires_at', new Date().toISOString());
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error clearing expired cache from database:', error);
+    }
+  }
+
+  async get(key: string, userId: string): Promise<PredictionResponse | null> {
+    // Load from database if cache is empty
+    if (this.cache.size === 0) {
+      await this.loadFromDatabase(userId);
+    }
+
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    const now = Date.now();
+    if (now > cached.expiresAt) {
+      this.cache.delete(key);
+      await this.clearExpiredFromDatabase();
+      return null;
+    }
+
+    return cached.data;
+  }
+
+  async set(key: string, data: PredictionResponse, input: PredictionRequest, userId: string) {
+    const now = Date.now();
+    const cachedPrediction: CachedPrediction = {
+      data,
+      timestamp: now,
+      expiresAt: now + CACHE_DURATION,
+      input,
+      user_id: userId
+    };
+
+    // Remove oldest entry if cache is full
+    if (this.cache.size >= this.maxSize) {
+      const oldestKey = Array.from(this.cache.entries())
+        .sort(([, a], [, b]) => a.timestamp - b.timestamp)[0][0];
+      this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(key, cachedPrediction);
+    await this.saveToDatabase(key, cachedPrediction);
+  }
+
+  async findSimilarPrediction(input: PredictionRequest, userId: string): Promise<PredictionResponse | null> {
+    // Load from database if cache is empty
+    if (this.cache.size === 0) {
+      await this.loadFromDatabase(userId);
+    }
+
+    const now = Date.now();
+    for (const [key, cached] of this.cache.entries()) {
+      if (now > cached.expiresAt) {
+        this.cache.delete(key);
+        continue;
+      }
+
+      if (this.areInputsSimilar(input, cached.input)) {
+        console.log('🟡 Similar Cache Hit:', {
+          original: cached.input,
+          new: input,
+          similarity: 'within 20% difference'
+        });
+        return cached.data;
+      }
+    }
+    return null;
+  }
+
+  private areInputsSimilar(input1: PredictionRequest, input2: PredictionRequest): boolean {
+    // Check if dates are within 7 days of each other
+    const date1Start = new Date(input1.start_date).getTime();
+    const date2Start = new Date(input2.start_date).getTime();
+    const dateDiff = Math.abs(date1Start - date2Start);
+    if (dateDiff > 7 * 24 * 60 * 60 * 1000) return false;
+
+    // Check if appliance counts are similar (within 20%)
+    const appliances1 = Object.entries(input1.appliances);
+    const appliances2 = Object.entries(input2.appliances);
+
+    if (appliances1.length !== appliances2.length) return false;
+
+    for (const [key, count1] of appliances1) {
+      const count2 = input2.appliances[key];
+      if (count2 === undefined) return false;
+      
+      const diff = Math.abs(count1 - count2);
+      const maxDiff = Math.max(count1, count2) * 0.2; // 20% difference allowed
+      if (diff > maxDiff) return false;
+    }
+
+    return true;
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+const predictionCache = new PredictionCache();
+
+// Memoized calculation functions
+const memoizedCalculateConsumption = (() => {
+  const cache = new Map<string, number>();
+  return (data: PredictionRequest): number => {
+    const cacheKey = JSON.stringify(data);
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey)!;
+    }
+    
+    const ENERGY_FACTORS = {
+      lightbulbs: 0.3,
+      tvs: 2.5,
+      computers: 1.8,
+      fans: 0.5,
+      refrigerators: 4.5,
+      washingMachines: 1.2,
+      coffeeMakers: 0.4,
+      smartphones: 0.1,
+      default: 1.0,
+    };
+
+    const startDate = new Date(data.start_date);
+    const endDate = new Date(data.end_date);
+    const days = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    let baseConsumption = 0;
+    for (const [appliance, count] of Object.entries(data.appliances)) {
+      const factor =
+        ENERGY_FACTORS[appliance as keyof typeof ENERGY_FACTORS] ||
+        ENERGY_FACTORS.default;
+      baseConsumption += factor * count * days;
+    }
+
+    // Add some randomness (±15%)
+    const randomness = 0.85 + Math.random() * 0.3;
+    const result = baseConsumption * randomness;
+    cache.set(cacheKey, result);
+    return result;
+  };
+})();
 
 const calculateDays = (startDate: string, endDate: string): number => {
   const start = new Date(startDate);
@@ -90,48 +281,21 @@ const calculateTotalAppliances = (appliances: Appliances): number => {
   return Object.values(appliances).reduce((sum, count) => sum + count, 0);
 };
 
+// Optimized time series generation
 const generateTimeSeriesPredictions = (
   dailyConsumption: number,
   days: number
 ): number[] => {
-  // Generate historical values with a weekly pattern (same as test_prediction.py)
-  const historicalValues = [
-    100,
-    105,
-    102,
-    108,
-    106,
-    110,
-    105, // Week 1
-    103,
-    107,
-    104,
-    109,
-    108,
-    112,
-    107, // Week 2
-    105,
-    108,
-    106,
-    111,
-    110,
-    115,
-    109, // Week 3
-  ];
-
-  // Scale the historical values to match the daily consumption
+  // Pre-calculate weekly pattern
+  const weeklyPattern = [100, 105, 102, 108, 106, 110, 105];
   const scaleFactor = dailyConsumption / 100;
-  const scaledHistoricalValues = historicalValues.map((v) => v * scaleFactor);
-
-  // Generate predictions based on the historical pattern
-  const predictions = [];
-  for (let i = 0; i < days; i++) {
-    const baseValue = scaledHistoricalValues[i % 7]; // Use weekly pattern
-    const variation = 0.9 + Math.random() * 0.2; // ±10% variation
-    predictions.push(baseValue * variation);
-  }
-
-  return predictions;
+  
+  // Use Array.from for better performance
+  return Array.from({ length: days }, (_, i) => {
+    const baseValue = weeklyPattern[i % 7] * scaleFactor;
+    const variation = 0.9 + Math.random() * 0.2;
+    return baseValue * variation;
+  });
 };
 
 const generateForecast = (prediction: PredictionResponse) => {
@@ -153,21 +317,144 @@ const generateForecast = (prediction: PredictionResponse) => {
   };
 };
 
+const MAX_RETRIES = 3;
+const TIMEOUT_DURATION = 30000; // 30 seconds
+const RETRY_DELAY = 5000; // 5 seconds between retries
+
+const fetchWithRetry = async (url: string, options: RequestInit, retries = 0): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    console.log(`⏱️ Request timed out after ${TIMEOUT_DURATION/1000} seconds`);
+  }, TIMEOUT_DURATION);
+
+  try {
+    console.log(`🔄 Attempt ${retries + 1}/${MAX_RETRIES} to fetch prediction`);
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.log(`⏱️ Request aborted after ${TIMEOUT_DURATION/1000} seconds`);
+      if (retries < MAX_RETRIES) {
+        console.log(`⏳ Waiting ${RETRY_DELAY/1000} seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        return fetchWithRetry(url, options, retries + 1);
+      }
+      throw new Error(`Request timed out after ${MAX_RETRIES} retries`);
+    }
+    
+    if (retries < MAX_RETRIES) {
+      console.log(`⚠️ Error: ${error.message}. Retrying in ${RETRY_DELAY/1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      return fetchWithRetry(url, options, retries + 1);
+    }
+    
+    throw error;
+  }
+};
+
 export const useEnergyStore = create<EnergyStore>((set, get) => ({
   loading: false,
   prediction: null,
   forecast: null,
   predictionHistory: [],
+  hasMoreHistory: true,
 
   setLoading: (loading) => set({ loading }),
 
-  fetchPrediction: async (data: PredictionRequest) => {
+  clearPredictionHistory: () => set({ predictionHistory: [], hasMoreHistory: true }),
+
+  fetchPredictionHistory: async (page = 1) => {
     try {
       set({ loading: true });
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("No authenticated user");
+
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .single();
+
+      if (!existingUser) return;
+
+      const PAGE_SIZE = 10;
+      const { data: predictions, error } = await supabase
+        .from("predictions")
+        .select("*")
+        .eq("user_id", existingUser.id)
+        .order("created_at", { ascending: false })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      set((state) => ({
+        predictionHistory: page === 1 ? predictions : [...state.predictionHistory, ...predictions],
+        hasMoreHistory: predictions.length === PAGE_SIZE
+      }));
+    } catch (error) {
+      console.error("Error fetching prediction history:", error);
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchPrediction: async (data: PredictionRequest) => {
+    const startTime = performance.now();
+    try {
+      set({ loading: true });
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No authenticated user");
+
+      // Generate cache key
+      const cacheKey = JSON.stringify({
+        ...data,
+        userId: user.id
+      });
+
+      // Check exact cache first
+      const cachedPrediction = await predictionCache.get(cacheKey, user.id);
+      if (cachedPrediction) {
+        const cacheTime = performance.now() - startTime;
+        console.log('🔵 Exact Cache Hit:', {
+          time: `${cacheTime.toFixed(2)}ms`,
+          key: cacheKey
+        });
+        set({ prediction: cachedPrediction });
+        return cachedPrediction;
+      }
+
+      // Check for similar predictions
+      const similarPrediction = await predictionCache.findSimilarPrediction(data, user.id);
+      if (similarPrediction) {
+        const similarTime = performance.now() - startTime;
+        console.log('🟡 Similar Cache Hit:', {
+          time: `${similarTime.toFixed(2)}ms`,
+          original: similarPrediction
+        });
+        set({ prediction: similarPrediction });
+        return similarPrediction;
+      }
+
+      console.log('🔴 Cache Miss:', {
+        key: cacheKey,
+        cacheSize: predictionCache.cache.size
+      });
 
       // Get or create user in the database
       const { data: existingUser, error: userError } = await supabase
@@ -200,8 +487,9 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
 
       if (!userId) throw new Error("Could not get or create user");
 
-      // Make API call to backend
-      const response = await fetch(`${API_URL}/predict`, {
+      // Make API call to backend with retry logic
+      const apiStartTime = performance.now();
+      const response = await fetchWithRetry(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -214,11 +502,17 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
       }
 
       const prediction = await response.json();
+      const apiTime = performance.now() - apiStartTime;
+      console.log('🟢 API Response:', {
+        time: `${apiTime.toFixed(2)}ms`,
+        status: response.status
+      });
       
       // Calculate days before using it
       const days = calculateDays(data.start_date, data.end_date);
       
       // Store prediction in Supabase
+      const dbStartTime = performance.now();
       const { data: savedPrediction, error } = await supabase
         .from("predictions")
         .insert([
@@ -241,12 +535,34 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
         console.error("Error saving prediction:", error);
         throw error;
       }
+      const dbTime = performance.now() - dbStartTime;
+      console.log('💾 Database Save:', {
+        time: `${dbTime.toFixed(2)}ms`
+      });
 
+      // Cache the prediction with input data
+      await predictionCache.set(cacheKey, savedPrediction, data, userId);
+      
+      const totalTime = performance.now() - startTime;
+      console.log('📊 Total Operation:', {
+        totalTime: `${totalTime.toFixed(2)}ms`,
+        apiTime: `${apiTime.toFixed(2)}ms`,
+        dbTime: `${dbTime.toFixed(2)}ms`,
+        cacheSize: predictionCache.cache.size
+      });
+      
       set({ prediction: savedPrediction });
       return savedPrediction;
     } catch (error) {
-      console.error("Error creating prediction:", error);
-      throw error;
+      const errorTime = performance.now() - startTime;
+      console.error('❌ Error:', {
+        time: `${errorTime.toFixed(2)}ms`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      if (error instanceof Error) {
+        throw new Error(`Prediction failed: ${error.message}`);
+      }
+      throw new Error('An unexpected error occurred during prediction');
     } finally {
       set({ loading: false });
     }
@@ -281,38 +597,6 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
     } catch (error) {
       console.error("Error creating forecast:", error);
       throw error;
-    }
-  },
-
-  fetchPredictionHistory: async () => {
-    try {
-      set({ loading: true });
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: dbUser, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", user.email)
-        .single();
-
-      if (userError || !dbUser) return;
-
-      const { data, error } = await supabase
-        .from("predictions")
-        .select("*")
-        .eq("user_id", dbUser.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ predictionHistory: data || [] });
-    } catch (error) {
-      console.error("Error fetching prediction history:", error);
-      set({ predictionHistory: [] });
-    } finally {
-      set({ loading: false });
     }
   },
 }));
