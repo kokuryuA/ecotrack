@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
 
 interface SubscriptionPlan {
   id: string;
@@ -14,8 +15,8 @@ interface SubscriptionPlan {
 const plans: SubscriptionPlan[] = [
   {
     id: 'basic',
-    name: 'Basique',
-    price: 999,
+    name: 'Gratuit',
+    price: 0,
     features: [
       'Jusqu\'à 10 prédictions d\'énergie par mois',
       'Analyses de consommation basiques',
@@ -75,6 +76,7 @@ const PaymentPage: React.FC = () => {
     cvv: '',
     name: '',
   });
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -86,6 +88,44 @@ const PaymentPage: React.FC = () => {
   if (!isAuthenticated) {
     return null;
   }
+
+  const handleSubscribe = async (planId: string) => {
+    try {
+      if (!user) {
+        toast.error('Veuillez vous connecter pour souscrire à un abonnement');
+        return;
+      }
+
+      if (planId === 'basic') {
+        // For basic (free) tier, just update the user's subscription in the database
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({
+            subscription_plan: planId,
+            subscription_start_date: new Date().toISOString(),
+            subscription_end_date: null // Free tier doesn't expire
+          })
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error updating subscription:', error);
+          toast.error('Erreur lors de la mise à jour de l\'abonnement');
+          return;
+        }
+
+        toast.success('Abonnement gratuit activé avec succès!');
+        navigate('/dashboard');
+        return;
+      }
+
+      // For paid plans, continue with existing payment logic
+      setSelectedPlan(planId);
+      setShowPaymentForm(true);
+    } catch (error) {
+      console.error('Error in subscription process:', error);
+      toast.error('Une erreur est survenue lors de la souscription');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,7 +172,7 @@ const PaymentPage: React.FC = () => {
                   ))}
                 </ul>
                 <button
-                  onClick={() => setSelectedPlan(plan.id)}
+                  onClick={() => handleSubscribe(plan.id)}
                   className={`mt-8 w-full py-2 px-4 rounded-lg font-medium ${
                     plan.id === selectedPlan
                       ? 'bg-purple-600 text-white'
@@ -146,87 +186,89 @@ const PaymentPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Détails de Paiement</h3>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Nom sur la Carte
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={paymentDetails.name}
-                onChange={(e) => setPaymentDetails({ ...paymentDetails, name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700">
-                Numéro de Carte
-              </label>
-              <input
-                type="text"
-                id="cardNumber"
-                value={paymentDetails.cardNumber}
-                onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                placeholder="1234 5678 9012 3456"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+        {showPaymentForm && (
+          <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-6">Détails de Paiement</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700">
-                  Date d'Expiration
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                  Nom sur la Carte
                 </label>
                 <input
                   type="text"
-                  id="expiryDate"
-                  value={paymentDetails.expiryDate}
-                  onChange={(e) => setPaymentDetails({ ...paymentDetails, expiryDate: e.target.value })}
+                  id="name"
+                  value={paymentDetails.name}
+                  onChange={(e) => setPaymentDetails({ ...paymentDetails, name: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                  placeholder="MM/AA"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="cvv" className="block text-sm font-medium text-gray-700">
-                  CVV
+                <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700">
+                  Numéro de Carte
                 </label>
                 <input
                   type="text"
-                  id="cvv"
-                  value={paymentDetails.cvv}
-                  onChange={(e) => setPaymentDetails({ ...paymentDetails, cvv: e.target.value })}
+                  id="cardNumber"
+                  value={paymentDetails.cardNumber}
+                  onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                  placeholder="123"
+                  placeholder="1234 5678 9012 3456"
                   required
                 />
               </div>
-            </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Plan Sélectionné</span>
-                <span className="font-semibold">
-                  {plans.find(p => p.id === selectedPlan)?.name} - {plans.find(p => p.id === selectedPlan)?.price} DZD/mois
-                </span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700">
+                    Date d'Expiration
+                  </label>
+                  <input
+                    type="text"
+                    id="expiryDate"
+                    value={paymentDetails.expiryDate}
+                    onChange={(e) => setPaymentDetails({ ...paymentDetails, expiryDate: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    placeholder="MM/AA"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="cvv" className="block text-sm font-medium text-gray-700">
+                    CVV
+                  </label>
+                  <input
+                    type="text"
+                    id="cvv"
+                    value={paymentDetails.cvv}
+                    onChange={(e) => setPaymentDetails({ ...paymentDetails, cvv: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    placeholder="123"
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              S'abonner Maintenant
-            </button>
-          </form>
-        </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Plan Sélectionné</span>
+                  <span className="font-semibold">
+                    {plans.find(p => p.id === selectedPlan)?.name} - {plans.find(p => p.id === selectedPlan)?.price} DZD/mois
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                S'abonner Maintenant
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
