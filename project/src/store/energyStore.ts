@@ -71,10 +71,13 @@ class PredictionCache {
 
   private async loadFromDatabase(userId: string) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No authenticated user");
+
       const { data: cachedPredictions, error } = await supabase
         .from('prediction_cache')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .gt('expires_at', new Date().toISOString());
 
       if (error) throw error;
@@ -101,16 +104,25 @@ class PredictionCache {
 
   private async saveToDatabase(key: string, prediction: CachedPrediction) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No authenticated user");
+
       const { error } = await supabase
         .from('prediction_cache')
-        .upsert({
-          cache_key: key,
-          user_id: prediction.user_id,
-          prediction_data: prediction.data,
-          input_data: prediction.input,
-          created_at: new Date(prediction.timestamp).toISOString(),
-          expires_at: new Date(prediction.expiresAt).toISOString()
-        });
+        .upsert(
+          {
+            cache_key: key,
+            user_id: user.id,
+            prediction_data: prediction.data,
+            input_data: prediction.input,
+            created_at: new Date(prediction.timestamp).toISOString(),
+            expires_at: new Date(prediction.expiresAt).toISOString()
+          },
+          {
+            onConflict: 'user_id,cache_key',
+            ignoreDuplicates: false
+          }
+        );
 
       if (error) throw error;
     } catch (error) {
@@ -236,7 +248,7 @@ const memoizedCalculateConsumption = (() => {
       return cache.get(cacheKey)!;
     }
     
-    const ENERGY_FACTORS = {
+  const ENERGY_FACTORS = {
       lightbulbs: 0.3 * 24, // kWh per day (24 hours)
       tvs: 2.5 * 6, // kWh per day (assumed 6 hours usage)
       computers: 1.8 * 8, // kWh per day (assumed 8 hours usage)
@@ -246,20 +258,20 @@ const memoizedCalculateConsumption = (() => {
       coffeeMakers: 0.4 * 1, // kWh per day (assumed 1 hour usage)
       smartphones: 0.1 * 12, // kWh per day (assumed 12 hours charging)
       default: 1.0 * 24, // kWh per day
-    };
+  };
 
-    const startDate = new Date(data.start_date);
-    const endDate = new Date(data.end_date);
-    const days = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
+  const startDate = new Date(data.start_date);
+  const endDate = new Date(data.end_date);
+  const days = Math.ceil(
+    (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
 
     // Calculate daily consumption for each appliance
     let dailyConsumption = 0;
-    for (const [appliance, count] of Object.entries(data.appliances)) {
-      const factor =
-        ENERGY_FACTORS[appliance as keyof typeof ENERGY_FACTORS] ||
-        ENERGY_FACTORS.default;
+  for (const [appliance, count] of Object.entries(data.appliances)) {
+    const factor =
+      ENERGY_FACTORS[appliance as keyof typeof ENERGY_FACTORS] ||
+      ENERGY_FACTORS.default;
       dailyConsumption += factor * count;
     }
 
@@ -271,7 +283,7 @@ const memoizedCalculateConsumption = (() => {
     const seasonalFactor = 1 + Math.sin((month / 12) * 2 * Math.PI) * 0.1;
 
     // Add some daily randomness (±15%)
-    const randomness = 0.85 + Math.random() * 0.3;
+  const randomness = 0.85 + Math.random() * 0.3;
 
     // Calculate final consumption with all factors
     const result = totalConsumption * seasonalFactor * randomness;
@@ -584,7 +596,7 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
         dbTime: `${dbTime.toFixed(2)}ms`,
         cacheSize: predictionCache.cache.size
       });
-      
+
       set({ prediction: savedPrediction });
       return savedPrediction;
     } catch (error) {

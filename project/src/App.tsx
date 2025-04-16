@@ -8,14 +8,16 @@ import ResultsDisplay from "./components/ResultsDisplay";
 import Footer from "./components/Footer";
 import { useAuthStore } from "./store/authStore";
 import Login from "./pages/Login";
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import PredictionHistory from './components/PredictionHistory';
 import { useEnergyStore } from "./store/energyStore";
 import Navigation from './components/Navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import PaymentPage from './components/PaymentPage';
+import AdminDashboard from './components/AdminDashboard';
 
 function App() {
-  const { isAuthenticated, checkUser } = useAuthStore();
+  const { isAuthenticated, checkUser, user } = useAuthStore();
   const { prediction } = useEnergyStore();
 
   useEffect(() => {
@@ -243,13 +245,25 @@ function App() {
             <div className="w-full">
               {/* Configure Your Prediction section */}
               <div className="mb-5">
-                <div className="flex items-center mb-4">
-                  <div className="bg-white/20 p-1.5 rounded-lg mr-2">
-                    <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="bg-white/20 p-1.5 rounded-lg mr-2">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Configure Your Prediction</h2>
                   </div>
-                  <h2 className="text-xl font-bold text-white">Configure Your Prediction</h2>
+                  <div className="flex gap-4">
+                    <Link to="/payment" className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors">
+                      Subscription Plans
+                    </Link>
+                    {user?.role === 'admin' && (
+                      <Link to="/admin" className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors">
+                        Admin Dashboard
+                      </Link>
+                    )}
+                  </div>
                 </div>
               
                 {/* Input Form and Widgets integrated in one container */}
@@ -367,6 +381,8 @@ function App() {
                     </div>
                   </div>
                 } />
+                <Route path="/payment" element={<PaymentPage />} />
+                <Route path="/admin" element={<AdminDashboard />} />
               </Routes>
             </AnimatePresence>
           </main>

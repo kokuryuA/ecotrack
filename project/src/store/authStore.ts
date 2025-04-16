@@ -7,6 +7,7 @@ interface User {
   email: string;
   phone_number?: string;
   created_at?: string;
+  role: 'user' | 'admin';
 }
 
 interface AuthState {
@@ -36,8 +37,14 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
+            // Check if the user is the admin email
+            const isAdmin = user.email === 'lionelabdelnour5@gmail.com';
             set({ 
-              user: { id: user.id, email: user.email || '' }, 
+              user: { 
+                id: user.id, 
+                email: user.email || '', 
+                role: isAdmin ? 'admin' : 'user'
+              }, 
               isAuthenticated: true,
               isLoading: false 
             });
@@ -60,8 +67,14 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error;
           if (user) {
+            // Check if the user is the admin email
+            const isAdmin = user.email === 'lionelabdelnour5@gmail.com';
             set({ 
-              user: { id: user.id, email: user.email || '' },
+              user: { 
+                id: user.id, 
+                email: user.email || '', 
+                role: isAdmin ? 'admin' : 'user'
+              },
               isAuthenticated: true,
               error: null
             });
@@ -89,19 +102,15 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
           
           if (data.user) {
-            const { error: profileError } = await supabase
-              .from('users')
-              .update({ phone_number: phoneNumber })
-              .eq('id', data.user.id);
-
-            if (profileError) throw profileError;
-
+            // Check if the user is the admin email
+            const isAdmin = email === 'lionelabdelnour5@gmail.com';
             set({ 
               user: {
                 id: data.user.id,
                 email: data.user.email!,
                 phone_number: phoneNumber,
-                created_at: data.user.created_at
+                created_at: data.user.created_at,
+                role: isAdmin ? 'admin' : 'user'
               },
               isAuthenticated: true
             });
