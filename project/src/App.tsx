@@ -15,6 +15,7 @@ import Navigation from './components/Navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import PaymentPage from './components/PaymentPage';
 import AdminDashboard from './components/AdminDashboard';
+import LiveData from './pages/LiveData';
 
 function App() {
   const { isAuthenticated, checkUser, user } = useAuthStore();
@@ -383,6 +384,7 @@ function App() {
                 } />
                 <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/live-data" element={<LiveData />} />
               </Routes>
             </AnimatePresence>
           </main>

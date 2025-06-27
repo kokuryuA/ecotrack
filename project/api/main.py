@@ -168,7 +168,17 @@ async def health_check():
 @app.post("/device-data")
 async def receive_device_data(data: DeviceData):
     try:
-        supabase.table("device_data").insert(data.dict()).execute()
+        # Convert epoch seconds to ISO 8601 if needed
+        ts = data.timestamp
+        if isinstance(ts, (int, float)) or (isinstance(ts, str) and ts.isdigit()):
+            # If timestamp is a number or numeric string, treat as epoch seconds
+            epoch = float(ts)
+            iso_ts = datetime.utcfromtimestamp(epoch).isoformat() + 'Z'
+            data_dict = data.dict()
+            data_dict["timestamp"] = iso_ts
+        else:
+            data_dict = data.dict()
+        supabase.table("device_data").insert(data_dict).execute()
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

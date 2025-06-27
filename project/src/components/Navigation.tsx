@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, History } from 'lucide-react';
+import { Home, History, Zap } from 'lucide-react';
 
 // Types
 interface NavItem {
@@ -20,6 +20,11 @@ const navItems: NavItem[] = [
     path: '/history',
     label: 'History',
     icon: <History className="w-5 h-5" />
+  },
+  {
+    path: '/live-data',
+    label: 'Live Data',
+    icon: <Zap className="w-5 h-5" />
   }
 ];
 
