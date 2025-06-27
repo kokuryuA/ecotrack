@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from statsforecast import StatsForecast
 from statsforecast.models import MSTL, AutoARIMA
+from supabase import create_client, Client
+import os
 
 app = FastAPI(
     title="Energy Consumption Predictor API",
@@ -59,6 +61,21 @@ class ComparisonInput(BaseModel):
     start_date: str
     end_date: str
     historical_values: Optional[List[float]] = None
+
+class DeviceData(BaseModel):
+    temperature: float
+    humidity: float
+    voltage: float
+    current: float
+    power: float
+    energy: float
+    timestamp: str  # ISO format
+    device_id: str = "default"
+
+# Initialize Supabase client using environment variables
+SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("VITE_SUPABASE_SERVICE_ROLE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.post("/predict")
 async def predict_energy(input_data: ApplianceInput):
@@ -147,6 +164,14 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/device-data")
+async def receive_device_data(data: DeviceData):
+    try:
+        supabase.table("device_data").insert(data.dict()).execute()
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
